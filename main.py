@@ -1,6 +1,6 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, QVBoxLayout, QHBoxLayout,
-                             QMessageBox, QListWidget, QLineEdit, QFileDialog)
+                             QMessageBox, QListWidget, QFileDialog)
 from PyQt6.QtGui import QPixmap
 import os
 from PIL import ImageOps, ImageFilter, Image, ImageEnhance
@@ -25,37 +25,95 @@ class ImageProcessor():
         picture.setPixmap(pixmap)
 
     def left(self):
-        left_pic = self.image.rotate(90)
+        if self.image is None:
+            popup = QMessageBox()
+            popup.setWindowTitle('Error')
+            popup.setText('Select a picture!')
+            popup.exec()
+            return
+
+        left_pic = self.image.rotate(90, expand = 1)
         self.image = left_pic
         self.show_image()
 
     def right(self):
-        self.image = self.image.rotate(270)
+        if self.image is None:
+            popup = QMessageBox()
+            popup.setWindowTitle('Error')
+            popup.setText('Select a picture!')
+            popup.exec()
+            return
+
+        self.image = self.image.rotate(- 90, expand = 1)
         self.show_image()
 
     def mirror(self):
+        if self.image is None:
+            popup = QMessageBox()
+            popup.setWindowTitle('Error')
+            popup.setText('Select a picture!')
+            popup.exec()
+            return
+
         self.image = ImageOps.mirror(self.image)
         self.show_image()
 
     def sharpen(self):
+        if self.image is None:
+            popup = QMessageBox()
+            popup.setWindowTitle('Error')
+            popup.setText('Select a picture!')
+            popup.exec()
+            return
+
         self.image = self.image.filter(ImageFilter.SHARPEN)
         self.show_image()
 
     def gray(self):
+        if self.image is None:
+            popup = QMessageBox()
+            popup.setWindowTitle('Error')
+            popup.setText('Select a picture!')
+            popup.exec()
+            return
+
         self.image = ImageOps.grayscale(self.image)
         self.show_image()
 
     def blur(self):
+        if self.image is None:
+            popup = QMessageBox()
+            popup.setWindowTitle('Error')
+            popup.setText('Select a picture!')
+            popup.exec()
+            return
+
         self.image = self.image.filter(ImageFilter.BoxBlur(1))
         self.show_image()
 
     def contrast(self):
+        if self.image is None:
+            popup = QMessageBox()
+            popup.setWindowTitle('Error')
+            popup.setText('Select a picture!')
+            popup.exec()
+            return
+
         self.image = ImageEnhance.Contrast(self.image)
         self.image = self.image.enhance(1.5)
         self.show_image()
 
     def save(self):
+        if self.image is None:
+            popup = QMessageBox()
+            popup.setWindowTitle('Error')
+            popup.setText('Select a picture!')
+            popup.exec()
+            return
+
         save_path = QFileDialog.getSaveFileName()
+        if not save_path[0]:
+            return
         self.image.save(save_path[0])
 
 workdir_path = ''
@@ -110,15 +168,19 @@ impr = ImageProcessor()
 def open_folder():
     global workdir_path
     workdir_path = QFileDialog.getExistingDirectory()
+    if len(workdir_path) == 0:
+        return
     filenames = os.listdir(workdir_path)
-    filter_filenames(filenames)
+    filenames = filter_filenames(filenames)
     pictures_list.addItems(filenames)
 
 def filter_filenames(f):
+    new_filenames = []
     for name in f:
-        check = name.endswith(('.png', '.jpg', '.jpeg', '.bmp'))
-        if not check:
-            f.remove(name)
+        check = name.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp'))
+        if check:
+            new_filenames.append(name)
+    return new_filenames
 
 def show():
     filename = pictures_list.selectedItems()[0].text()
