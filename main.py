@@ -1,10 +1,20 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, QVBoxLayout, QHBoxLayout,
-                             QMessageBox, QListWidget, QFileDialog)
+                             QMessageBox, QListWidget, QFileDialog, QSlider, QGroupBox)
 from PyQt6.QtGui import QPixmap
 import os
-from PIL import ImageOps, ImageFilter, Image, ImageEnhance
+from PIL import ImageOps, ImageFilter, Image, ImageEnhance, ImageDraw
 from PIL.ImageQt import ImageQt
+import math
+import numpy as np
+
+def min_float(*floats):
+    minimum = floats[0]
+    for element in floats:
+        if element < minimum:
+            minimum = element
+    return minimum
+
 
 class ImageProcessor():
     def __init__(self):
@@ -32,7 +42,7 @@ class ImageProcessor():
             popup.exec()
             return
 
-        left_pic = self.image.rotate(90, expand = 1)
+        left_pic = self.image.rotate(90, expand=1)
         self.image = left_pic
         self.show_image()
 
@@ -44,7 +54,7 @@ class ImageProcessor():
             popup.exec()
             return
 
-        self.image = self.image.rotate(- 90, expand = 1)
+        self.image = self.image.rotate(- 90, expand=1)
         self.show_image()
 
     def mirror(self):
@@ -103,6 +113,31 @@ class ImageProcessor():
         self.image = self.image.enhance(1.5)
         self.show_image()
 
+    def vignette(self, strength=1.0):
+        if self.image is None:
+            popup = QMessageBox()
+            popup.setWindowTitle('Error')
+            popup.setText('Select a picture!')
+            popup.exec()
+            return
+
+        mask = Image.new('L', self.image.size, 0)
+        draw = ImageDraw.Draw(mask)
+        center_x, center_y = self.image.width / 2, self.image.height / 2
+        max_radius = math.sqrt(center_x ** 2 + center_y ** 2)
+
+        for x in range(self.image.width):
+            for y in range(self.image.height):
+                d_x, d_y = (x - center_x), (y - center_y)
+                distance = math.sqrt(d_x ** 2 + d_y ** 2)
+                factor = 1 - min_float(1, (distance / max_radius) * strength)
+                mask.putpixel((x, y), int(factor * 255))
+
+        black = Image.new('RGB', self.image.size, 'black')
+        self.image = Image.composite(self.image, black, mask)
+
+        self.show_image()
+
     def save(self):
         if self.image is None:
             popup = QMessageBox()
@@ -115,6 +150,7 @@ class ImageProcessor():
         if not save_path[0]:
             return
         self.image.save(save_path[0])
+
 
 workdir_path = ''
 app = QApplication([])
@@ -140,13 +176,26 @@ layout2.addWidget(mirror_button)
 layout2.addWidget(sharpness_button)
 layout2.addWidget(gray_button)
 
-layout4 = QHBoxLayout()
+vignette_group = QGroupBox()
+layout5 = QHBoxLayout()
+slider = QSlider(Qt.Orientation.Horizontal)
+slider.setRange(1, 100)
+slider.setSingleStep(25)
+slider.setValue(50)
+slider.setTickPosition(QSlider.TickPosition.TicksAbove)
+slider.setTickInterval(25)
+
 vignite_button = QPushButton('Vignette')
+layout5.addWidget(slider)
+layout5.addWidget(vignite_button)
+vignette_group.setLayout(layout5)
+
+layout4 = QHBoxLayout()
 blur_button = QPushButton('Blur')
 contrast_button = QPushButton('Contrast')
 save_button = QPushButton('Save')
 save_button.setStyleSheet("background-color: green; color: white;")
-layout4.addWidget(vignite_button)
+layout4.addWidget(vignette_group)
 layout4.addWidget(blur_button)
 layout4.addWidget(contrast_button)
 layout4.addWidget(save_button)
@@ -165,6 +214,7 @@ win.setLayout(layout_main)
 
 impr = ImageProcessor()
 
+
 def open_folder():
     global workdir_path
     workdir_path = QFileDialog.getExistingDirectory()
@@ -174,6 +224,7 @@ def open_folder():
     filenames = filter_filenames(filenames)
     pictures_list.addItems(filenames)
 
+
 def filter_filenames(f):
     new_filenames = []
     for name in f:
@@ -182,10 +233,17 @@ def filter_filenames(f):
             new_filenames.append(name)
     return new_filenames
 
+
 def show():
     filename = pictures_list.selectedItems()[0].text()
     impr.open(filename)
     impr.show_image()
+
+
+def apply_vignette():
+    strength = slider.value()
+    impr.vignette(strength/100 + 0.5)
+
 
 folder_button.clicked.connect(open_folder)
 pictures_list.itemClicked.connect(show)
@@ -197,6 +255,7 @@ gray_button.clicked.connect(impr.gray)
 blur_button.clicked.connect(impr.blur)
 contrast_button.clicked.connect(impr.contrast)
 save_button.clicked.connect(impr.save)
+vignite_button.clicked.connect(apply_vignette)
 
 win.show()
 app.exec()
