@@ -113,6 +113,7 @@ class ImageProcessor():
         self.image = self.image.enhance(1.5)
         self.show_image()
 
+
     def vignette(self, strength=1.0):
         if self.image is None:
             popup = QMessageBox()
@@ -123,19 +124,13 @@ class ImageProcessor():
 
         mask = Image.new('L', self.image.size, 0)
         draw = ImageDraw.Draw(mask)
-        center_x, center_y = self.image.width / 2, self.image.height / 2
-        max_radius = math.sqrt(center_x ** 2 + center_y ** 2)
-
-        for x in range(self.image.width):
-            for y in range(self.image.height):
-                d_x, d_y = (x - center_x), (y - center_y)
-                distance = math.sqrt(d_x ** 2 + d_y ** 2)
-                factor = 1 - min_float(1, (distance / max_radius) * strength)
-                mask.putpixel((x, y), int(factor * 255))
-
+        x, y = np.linspace(-1, 1, self.image.width), np.linspace(-1, 1, self.image.height)
+        xv, yv = np.meshgrid(x, y)
+        radius = np.sqrt(xv**2 + yv**2)
+        vin = 1 - np.clip(radius * strength, 0, 1)
+        mask = Image.fromarray(np.uint8(vin*255)).convert('L')
         black = Image.new('RGB', self.image.size, 'black')
         self.image = Image.composite(self.image, black, mask)
-
         self.show_image()
 
     def save(self):
